@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/app-button';
@@ -11,7 +11,8 @@ import { AppHeader } from '@/components/app-header';
 import { RatingBadge } from '@/components/rating-badge';
 import { SectionHeader } from '@/components/section-header';
 import { Fonts, Radius, Shadow, Spacing, Typography, type ThemeColors } from '@/constants/theme';
-import { formatVND, trips, type Trip } from '@/data/mock';
+import { formatVND, type Trip } from '@/data/mock';
+import { useTrips } from '@/hooks/use-catalog';
 import { useTheme, useThemeColors, useThemedStyles } from '@/hooks/use-theme';
 
 type Mode = 'find' | 'offer';
@@ -24,6 +25,7 @@ export default function ShareScreen() {
   const [mode, setMode] = useState<Mode>('find');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const { data: trips, loading } = useTrips();
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -58,9 +60,13 @@ export default function ShareScreen() {
         <View style={{ marginTop: Spacing['2xl'] }}>
           <SectionHeader title="Gợi ý chuyến đi" onAction={() => {}} />
           <View style={{ gap: Spacing.md }}>
-            {trips.map((t) => (
-              <TripCard key={t.id} trip={t} />
-            ))}
+            {loading ? (
+              <ActivityIndicator color={Colors.green} style={{ paddingVertical: Spacing['2xl'] }} />
+            ) : trips.length === 0 ? (
+              <Text style={styles.emptyText}>Chưa có chuyến đi nào.</Text>
+            ) : (
+              trips.map((t) => <TripCard key={t.id} trip={t} />)
+            )}
           </View>
         </View>
       </ScrollView>
@@ -191,4 +197,5 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   tripMeta: { flexDirection: 'row', gap: Spacing.xl },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metaText: { ...Typography.caption, color: Colors.textMuted },
+  emptyText: { ...Typography.body, color: Colors.textMuted, textAlign: 'center', paddingVertical: Spacing['2xl'] },
 });

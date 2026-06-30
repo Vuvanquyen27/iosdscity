@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -20,6 +21,8 @@ interface AppButtonProps {
   variant?: Variant;
   fullWidth?: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
+  /** Logo/icon tuỳ biến (vd: logo Google/Apple SVG) — ưu tiên hơn `icon`. */
+  iconNode?: ReactNode;
   loading?: boolean;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -32,6 +35,7 @@ export function AppButton({
   variant = 'primary',
   fullWidth = true,
   icon,
+  iconNode,
   loading = false,
   disabled = false,
   style,
@@ -57,7 +61,9 @@ export function AppButton({
         <ActivityIndicator color={v.label.color} />
       ) : (
         <View style={styles.row}>
-          {icon ? (
+          {iconNode ? (
+            iconNode
+          ) : icon ? (
             <Ionicons name={icon} size={20} color={v.iconColor ?? v.label.color} />
           ) : null}
           <Text style={[styles.label, v.label]}>{title}</Text>

@@ -2,23 +2,26 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/app-button';
 import { AppHeader } from '@/components/app-header';
+import { PaymentMethodIcon } from '@/components/brand-icons';
 import { Fonts, Radius, Shadow, Spacing, Typography, type ThemeColors } from '@/constants/theme';
+import { usePreferences } from '@/hooks/use-preferences';
 import { useTheme, useThemeColors, useThemedStyles } from '@/hooks/use-theme';
-import { formatVND, user, type PaymentMethod } from '@/data/mock';
+import { useWallet } from '@/hooks/use-wallet';
+import { formatVND, type PaymentMethod } from '@/data/mock';
 
 const MIN_AMOUNT = 10000;
 const PRESETS = [50000, 100000, 200000, 500000, 1000000, 2000000];
 
-const METHODS: { key: PaymentMethod; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: 'MOMO', label: 'Ví MoMo', icon: 'wallet-outline' },
-  { key: 'VISA', label: 'Thẻ VISA •••• 4242', icon: 'card-outline' },
-  { key: 'Mastercard', label: 'Mastercard •••• 8910', icon: 'card-outline' },
-  { key: 'Tiền mặt', label: 'Tiền mặt tại điểm', icon: 'cash-outline' },
+const METHODS: { key: PaymentMethod; label: string }[] = [
+  { key: 'MOMO', label: 'Ví MoMo' },
+  { key: 'VISA', label: 'Thẻ VISA •••• 4242' },
+  { key: 'Mastercard', label: 'Mastercard •••• 8910' },
+  { key: 'Tiền mặt', label: 'Tiền mặt tại điểm' },
 ];
 
 /** Nhóm chữ số theo hàng nghìn: 100000 -> "100.000". */
@@ -31,8 +34,10 @@ export default function TopUpScreen() {
   const { isDark } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const Colors = useThemeColors();
+  const { balance, topup } = useWallet();
+  const { prefs } = usePreferences();
   const [amount, setAmount] = useState(0);
-  const [method, setMethod] = useState<PaymentMethod>('MOMO');
+  const [method, setMethod] = useState<PaymentMethod>(prefs.payment);
 
   const onChangeAmount = (t: string) => {
     const digits = t.replace(/\D/g, '');
@@ -41,14 +46,20 @@ export default function TopUpScreen() {
 
   const valid = amount >= MIN_AMOUNT;
 
-  const onConfirm = () => {
+  const onConfirm = async () => {
+    try {
+      await topup(amount, method); // cộng tiền vào ví (Supabase nếu đã đăng nhập)
+    } catch {
+      Alert.alert('Nạp tiền thất bại', 'Không nạp được tiền lúc này. Vui lòng thử lại.');
+      return;
+    }
     router.replace({
       pathname: '/success',
       params: {
         showQr: '0',
         title: 'Nạp tiền thành công!',
         code: `+ ${formatVND(amount)}`,
-        subtitle: `Số dư mới: ${formatVND(user.balance + amount)}`,
+        subtitle: `Số dư mới: ${formatVND(balance + amount)}`,
       },
     });
   };
@@ -68,7 +79,7 @@ export default function TopUpScreen() {
         <View style={styles.balanceRow}>
           <Ionicons name="wallet-outline" size={18} color={Colors.green} />
           <Text style={styles.balanceLabel}>Số dư hiện tại</Text>
-          <Text style={styles.balanceValue}>{formatVND(user.balance)}</Text>
+          <Text style={styles.balanceValue}>{formatVND(balance)}</Text>
         </View>
 
         {/* Nhập số tiền */}
@@ -116,7 +127,7 @@ export default function TopUpScreen() {
                 {i > 0 ? <View style={styles.separator} /> : null}
                 <Pressable style={styles.methodRow} onPress={() => setMethod(m.key)}>
                   <View style={styles.methodIcon}>
-                    <Ionicons name={m.icon} size={20} color={Colors.green} />
+                    <PaymentMethodIcon method={m.key} color={Colors.green} />
                   </View>
                   <Text style={styles.methodLabel}>{m.label}</Text>
                   <Ionicons

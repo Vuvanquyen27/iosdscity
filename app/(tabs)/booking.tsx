@@ -7,7 +7,9 @@ import { AppButton } from '@/components/app-button';
 import { Chip } from '@/components/chip';
 import { Fonts, Radius, Shadow, Spacing, Typography, type ThemeColors } from '@/constants/theme';
 import { useThemeColors, useThemedStyles } from '@/hooks/use-theme';
-import { formatVND, transactions } from '@/data/mock';
+import { useWallet } from '@/hooks/use-wallet';
+import { useLanguage, translateOrderName } from '@/i18n';
+import { formatVND } from '@/data/mock';
 
 const ICON: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
   parking: 'parking',
@@ -19,46 +21,52 @@ const ICON: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
 export default function BookingScreen() {
   const styles = useThemedStyles(makeStyles);
   const Colors = useThemeColors();
-  // Demo: coi đơn đầu tiên là đơn đang diễn ra.
+  const { transactions } = useWallet();
+  const { t, td } = useLanguage();
+  // Demo: coi giao dịch mới nhất là đơn đang diễn ra.
   const active = transactions[0];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Đặt chỗ của tôi</Text>
+        <Text style={styles.title}>{t('booking.title')}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.chips}>
-          <Chip label="Sắp tới" selected />
-          <Chip label="Lịch sử" />
+          <Chip label={t('booking.upcoming')} selected />
+          <Chip label={t('booking.history')} />
         </View>
 
-        {/* Một đơn đang diễn ra */}
-        <View style={styles.card}>
-          <View style={styles.cardIcon}>
-            <MaterialCommunityIcons name={ICON[active.kind]} size={26} color={Colors.green} />
-          </View>
-          <View style={styles.flex}>
-            <Text style={styles.cardName}>{active.name}</Text>
-            <Text style={styles.cardMeta}>{active.datetime}</Text>
-          </View>
-          <View style={styles.statusPill}>
-            <Text style={styles.statusText}>Đang diễn ra</Text>
-          </View>
-        </View>
-        <Text style={styles.amount}>{formatVND(active.amount)}</Text>
+        {/* Một đơn đang diễn ra (giao dịch mới nhất) */}
+        {active ? (
+          <>
+            <View style={styles.card}>
+              <View style={styles.cardIcon}>
+                <MaterialCommunityIcons name={ICON[active.kind]} size={26} color={Colors.green} />
+              </View>
+              <View style={styles.flex}>
+                <Text style={styles.cardName}>{translateOrderName(active.name, t, td)}</Text>
+                <Text style={styles.cardMeta}>{td(active.datetime)}</Text>
+              </View>
+              <View style={styles.statusPill}>
+                <Text style={styles.statusText}>{t('booking.active')}</Text>
+              </View>
+            </View>
+            <Text style={styles.amount}>{formatVND(active.amount)}</Text>
+          </>
+        ) : null}
 
         {/* Empty hint cho phần còn lại */}
         <View style={styles.empty}>
           <View style={styles.emptyIcon}>
             <Ionicons name="calendar-outline" size={40} color={Colors.textMuted} />
           </View>
-          <Text style={styles.emptyTitle}>Chưa có lịch đặt sắp tới khác</Text>
-          <Text style={styles.emptySub}>Khám phá dịch vụ và đặt chỗ ngay hôm nay</Text>
+          <Text style={styles.emptyTitle}>{t('booking.emptyTitle')}</Text>
+          <Text style={styles.emptySub}>{t('booking.emptySub')}</Text>
           <View style={styles.emptyButton}>
             <AppButton
-              title="Khám phá dịch vụ"
+              title={t('booking.explore')}
               fullWidth={false}
               onPress={() => router.push('/home')}
             />

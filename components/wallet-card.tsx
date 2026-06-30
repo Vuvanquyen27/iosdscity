@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Colors, Fonts, Gradients, Radius, Shadow, Spacing } from '@/constants/theme';
 import { formatVND } from '@/data/mock';
+import { useLanguage } from '@/i18n';
 
 interface WalletCardProps {
   balance: number;
@@ -20,6 +21,7 @@ export function WalletCard({
   actionIcon = 'add-circle-outline',
   onAction,
 }: WalletCardProps) {
+  const { t } = useLanguage();
   return (
     <LinearGradient
       colors={Gradients.wallet}
@@ -29,7 +31,7 @@ export function WalletCard({
       <View style={styles.topRow}>
         <View style={styles.labelRow}>
           <Ionicons name="wallet-outline" size={16} color={Colors.white} />
-          <Text style={styles.label}>Ví của tôi</Text>
+          <Text style={styles.label}>{t('wallet.myWallet')}</Text>
         </View>
         <Ionicons name="ellipsis-horizontal" size={20} color="rgba(255,255,255,0.7)" />
       </View>

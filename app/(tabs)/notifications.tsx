@@ -5,13 +5,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Fonts, Radius, Shadow, Spacing, Typography, type ThemeColors } from '@/constants/theme';
 import { useThemeColors, useThemedStyles } from '@/hooks/use-theme';
+import { useLanguage, type UiKey } from '@/i18n';
 
 interface NotiItem {
   id: string;
   icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  body: string;
-  time: string;
+  /** Khoá i18n cho tiêu đề / nội dung / thời gian (dịch khi render). */
+  titleKey: UiKey;
+  bodyKey: UiKey;
+  timeKey: UiKey;
   unread: boolean;
 }
 
@@ -19,25 +21,25 @@ const NOTIS: NotiItem[] = [
   {
     id: 'n1',
     icon: 'pricetag',
-    title: 'Ưu đãi cuối tuần',
-    body: 'Giảm 20% các bãi đỗ nổi bật trong thành phố. Áp dụng tới Chủ nhật.',
-    time: '5 phút trước',
+    titleKey: 'noti.n1.title',
+    bodyKey: 'noti.n1.body',
+    timeKey: 'noti.n1.time',
     unread: true,
   },
   {
     id: 'n2',
     icon: 'checkmark-circle',
-    title: 'Đặt chỗ thành công',
-    body: 'Bãi đậu xe Central Plaza — mã PARK-240512-8X7A đã được xác nhận.',
-    time: '2 giờ trước',
+    titleKey: 'noti.n2.title',
+    bodyKey: 'noti.n2.body',
+    timeKey: 'noti.n2.time',
     unread: true,
   },
   {
     id: 'n3',
     icon: 'wallet',
-    title: 'Nạp tiền thành công',
-    body: 'Ví của bạn vừa được cộng 200.000đ.',
-    time: 'Hôm qua',
+    titleKey: 'noti.n3.title',
+    bodyKey: 'noti.n3.body',
+    timeKey: 'noti.n3.time',
     unread: false,
   },
 ];
@@ -46,6 +48,7 @@ const NOTIS: NotiItem[] = [
 export default function NotificationsScreen() {
   const styles = useThemedStyles(makeStyles);
   const Colors = useThemeColors();
+  const { t } = useLanguage();
   const [notis, setNotis] = useState<NotiItem[]>(NOTIS);
   const hasUnread = notis.some((n) => n.unread);
 
@@ -54,13 +57,13 @@ export default function NotificationsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Thông báo</Text>
+        <Text style={styles.title}>{t('tab.notifications')}</Text>
         <Pressable
           onPress={markAllRead}
           disabled={!hasUnread}
           hitSlop={8}
           style={styles.headerAction}
-          accessibilityLabel="Đánh dấu tất cả đã đọc">
+          accessibilityLabel={t('noti.markAllRead')}>
           <Ionicons
             name="notifications-outline"
             size={22}
@@ -82,11 +85,11 @@ export default function NotificationsScreen() {
             </View>
             <View style={styles.flex}>
               <View style={styles.titleRow}>
-                <Text style={styles.itemTitle}>{n.title}</Text>
+                <Text style={styles.itemTitle}>{t(n.titleKey)}</Text>
                 {n.unread ? <View style={styles.dot} /> : null}
               </View>
-              <Text style={styles.itemBody}>{n.body}</Text>
-              <Text style={styles.itemTime}>{n.time}</Text>
+              <Text style={styles.itemBody}>{t(n.bodyKey)}</Text>
+              <Text style={styles.itemTime}>{t(n.timeKey)}</Text>
             </View>
           </View>
         ))}

@@ -6,19 +6,19 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Colors, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 
 interface DetailHeroProps {
   image: string;
-  /** Badge góc dưới-trái, ví dụ tầng "B2". */
+  /** Badge tầng đặt giữa ảnh, ví dụ "B2". */
   badge?: string;
   height?: number;
   /** Lớp gradient tối ở trên cùng giúp nút back/like nổi rõ trên ảnh sáng. */
   overlay?: boolean;
 }
 
-/** Ảnh đầu màn chi tiết: ảnh nền + nút back + nút yêu thích (+ badge). */
-export function DetailHero({ image, badge, height = 280, overlay = false }: DetailHeroProps) {
+/** Ảnh đầu màn chi tiết: ảnh nền + nút back + nút yêu thích (+ badge tầng). */
+export function DetailHero({ image, badge, height = 280, overlay = true }: DetailHeroProps) {
   const insets = useSafeAreaInsets();
   const [liked, setLiked] = useState(false);
 
@@ -48,9 +48,10 @@ export function DetailHero({ image, badge, height = 280, overlay = false }: Deta
       </View>
 
       {badge ? (
-        <View style={styles.badge}>
-          <Ionicons name="layers-outline" size={14} color={Colors.white} />
-          <Text style={styles.badgeText}>{badge}</Text>
+        <View style={styles.badgeWrap} pointerEvents="none">
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{badge}</Text>
+          </View>
         </View>
       ) : null}
     </View>
@@ -75,18 +76,26 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.92)',
     alignItems: 'center',
     justifyContent: 'center',
+    ...Shadow.card,
+  },
+  // Badge tầng đặt chính giữa ảnh hero (như mẫu 7.jpg — màn 5).
+  badgeWrap: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   badge: {
-    position: 'absolute',
-    bottom: Spacing.xl,
-    left: Spacing.xl,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: Colors.navy,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
-    borderRadius: Radius.full,
+    backgroundColor: Colors.green,
+    paddingHorizontal: Spacing['2xl'],
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.md,
+    ...Shadow.card,
   },
-  badgeText: { fontFamily: Fonts.bold, fontSize: 13, color: Colors.white },
+  badgeText: {
+    fontFamily: Fonts.bold,
+    fontSize: 28,
+    lineHeight: 32,
+    letterSpacing: 1,
+    color: Colors.white,
+  },
 });

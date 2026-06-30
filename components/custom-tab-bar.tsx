@@ -5,21 +5,22 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts, Radius, Shadow, Spacing, type ThemeColors } from '@/constants/theme';
 import { useThemeColors, useThemedStyles } from '@/hooks/use-theme';
+import { useLanguage, type UiKey } from '@/i18n';
 
-/** Cấu hình icon + nhãn cho từng tab (khớp tên file trong app/(tabs)/). */
+/** Cấu hình icon + key nhãn cho từng tab (khớp tên file trong app/(tabs)/). */
 const TAB_META: Record<
   string,
-  { label: string; icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap }
+  { labelKey: UiKey; icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap }
 > = {
-  home: { label: 'Trang chủ', icon: 'home-outline', iconActive: 'home' },
-  map: { label: 'Bản đồ', icon: 'map-outline', iconActive: 'map' },
-  booking: { label: 'Đặt chỗ', icon: 'calendar-outline', iconActive: 'calendar' },
+  home: { labelKey: 'tab.home', icon: 'home-outline', iconActive: 'home' },
+  map: { labelKey: 'tab.map', icon: 'map-outline', iconActive: 'map' },
+  booking: { labelKey: 'tab.booking', icon: 'calendar-outline', iconActive: 'calendar' },
   notifications: {
-    label: 'Thông báo',
+    labelKey: 'tab.notifications',
     icon: 'notifications-outline',
     iconActive: 'notifications',
   },
-  account: { label: 'Tài khoản', icon: 'person-outline', iconActive: 'person' },
+  account: { labelKey: 'tab.account', icon: 'person-outline', iconActive: 'person' },
 };
 
 /** Bottom navigation 5 tab — tab active màu green, nền trắng bo góc trên. */
@@ -27,6 +28,7 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const styles = useThemedStyles(makeStyles);
   const Colors = useThemeColors();
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
 
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, Spacing.sm) }]}>
@@ -57,7 +59,7 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
             accessibilityState={isFocused ? { selected: true } : {}}>
             <Ionicons name={isFocused ? meta.iconActive : meta.icon} size={24} color={color} />
             <Text style={[styles.label, { color }]} numberOfLines={1}>
-              {meta.label}
+              {t(meta.labelKey)}
             </Text>
           </Pressable>
         );

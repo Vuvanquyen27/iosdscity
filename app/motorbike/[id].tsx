@@ -1,11 +1,23 @@
 import { useLocalSearchParams } from 'expo-router';
+import { ActivityIndicator, View } from 'react-native';
 
 import { VehicleDetail } from '@/components/vehicle-detail';
-import { getVehicle, vehicles } from '@/data/mock';
+import { useVehicle } from '@/hooks/use-catalog';
+import { useThemeColors } from '@/hooks/use-theme';
 
 /** Màn 7 — Thuê xe máy. */
 export default function MotorbikeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const vehicle = getVehicle(id) ?? vehicles.find((v) => v.kind === 'motorbike')!;
+  const { data: vehicle, loading } = useVehicle(id);
+  const Colors = useThemeColors();
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.bg }}>
+        <ActivityIndicator color={Colors.green} />
+      </View>
+    );
+  }
+  if (!vehicle) return null;
   return <VehicleDetail vehicle={vehicle} />;
 }

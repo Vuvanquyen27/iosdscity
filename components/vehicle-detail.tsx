@@ -4,15 +4,17 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/app-button';
 import { PriceOption } from '@/components/price-option';
 import { Fonts, Radius, Shadow, Spacing, Typography, type ThemeColors } from '@/constants/theme';
 import { formatVND, type Vehicle } from '@/data/mock';
+import { useVehicles } from '@/hooks/use-catalog';
 import { useTheme, useThemeColors, useThemedStyles } from '@/hooks/use-theme';
 import { useVehicleImage } from '@/hooks/use-vehicle-image';
+import { useWallet } from '@/hooks/use-wallet';
 import { useLanguage } from '@/i18n';
 
 type PriceKey = 'hour' | 'day' | 'week';
@@ -33,6 +35,7 @@ export function VehicleDetail({ vehicle }: { vehicle: Vehicle }) {
   const Colors = useThemeColors();
   const { isDark } = useTheme();
   const { t, td } = useLanguage();
+  const { spend } = useWallet();
   const [priceKey, setPriceKey] = useState<PriceKey>('day'); // mặc định "Theo ngày"
   const [liked, setLiked] = useState(false);
 
@@ -40,6 +43,15 @@ export function VehicleDetail({ vehicle }: { vehicle: Vehicle }) {
 
   // Ảnh lấy động theo tên xe (Google / Wikipedia), fallback về ảnh mock.
   const image = useVehicleImage(vehicle.name, vehicle.kind, vehicle.image);
+
+  // Các mẫu xe khác cùng loại — để gợi ý / chuyển nhanh sang xe khác.
+  const { data: sameKind } = useVehicles(vehicle.kind);
+  const related = sameKind.filter((v) => v.id !== vehicle.id);
+
+  const openVehicle = (id: string) => {
+    tap();
+    router.push({ pathname: isCar ? '/car/[id]' : '/motorbike/[id]', params: { id } });
+  };
 
   const options: { key: PriceKey; label: string; value: string }[] = [
     { key: 'hour', label: t('plan.hour'), value: `${formatVND(vehicle.pricePerHour)}${t('unit.hour')}` },
@@ -57,8 +69,32 @@ export function VehicleDetail({ vehicle }: { vehicle: Vehicle }) {
     setLiked((v) => !v);
   };
 
-  const cont = () => {
+  const cont = async () => {
     tap(Haptics.ImpactFeedbackStyle.Medium);
+    // Giá theo gói đang chọn — trừ vào ví & ghi đơn (Supabase nếu đã đăng nhập).
+    const amount =
+      priceKey === 'hour'
+        ? vehicle.pricePerHour
+        : priceKey === 'week'
+          ? vehicle.pricePerWeek
+          : vehicle.pricePerDay;
+    const name = `${isCar ? 'Thuê ô tô' : 'Thuê xe máy'} ${vehicle.name}`;
+    try {
+      const ok = await spend({
+        kind: vehicle.kind,
+        name,
+        amount,
+        serviceType: vehicle.kind,
+        targetId: vehicle.id,
+      });
+      if (!ok) {
+        Alert.alert(t('wallet.insufficient.title'), t('wallet.insufficient.msg'));
+        return;
+      }
+    } catch {
+      Alert.alert('Đặt xe thất bại', 'Không đặt được lúc này. Vui lòng thử lại.');
+      return;
+    }
     router.push({
       pathname: '/success',
       params: {
@@ -144,6 +180,33 @@ export function VehicleDetail({ vehicle }: { vehicle: Vehicle }) {
             ))}
           </View>
         </View>
+
+        {/* Các mẫu xe khác cùng loại — vuốt ngang để chọn nhanh */}
+        {related.length > 0 ? (
+          <View style={styles.related}>
+            <Text style={styles.relatedTitle}>{isCar ? 'Mẫu ô tô khác' : 'Mẫu xe máy khác'}</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.relatedRow}>
+              {related.map((v) => (
+                <Pressable
+                  key={v.id}
+                  onPress={() => openVehicle(v.id)}
+                  style={({ pressed }) => [styles.relatedCard, pressed && styles.pressed]}>
+                  <Image source={{ uri: v.image }} style={styles.relatedImage} contentFit="cover" transition={150} />
+                  <Text style={styles.relatedName} numberOfLines={1}>
+                    {v.name}
+                  </Text>
+                  <Text style={styles.relatedPrice}>
+                    {formatVND(v.pricePerDay)}
+                    {t('unit.day')}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
       </ScrollView>
 
       {/* Nút cố định đáy */}
@@ -224,6 +287,28 @@ const makeStyles = (Colors: ThemeColors) =>
     },
     feature: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 },
     featureText: { fontFamily: Fonts.medium, fontSize: 11.5, color: Colors.textMuted },
+
+    related: { marginTop: Spacing['2xl'] },
+    relatedTitle: { ...Typography.h2, color: Colors.text, paddingHorizontal: Spacing.xl, marginBottom: Spacing.md },
+    relatedRow: { paddingHorizontal: Spacing.xl, gap: Spacing.md },
+    relatedCard: {
+      width: 150,
+      backgroundColor: Colors.surface,
+      borderRadius: Radius.lg,
+      borderWidth: 1,
+      borderColor: Colors.border,
+      padding: Spacing.sm,
+      ...Shadow.card,
+    },
+    relatedImage: {
+      width: '100%',
+      height: 92,
+      borderRadius: Radius.md,
+      backgroundColor: Colors.bg,
+      marginBottom: Spacing.sm,
+    },
+    relatedName: { fontFamily: Fonts.semibold, fontSize: 13, color: Colors.text },
+    relatedPrice: { fontFamily: Fonts.bold, fontSize: 13, color: Colors.green, marginTop: 2 },
 
     footer: {
       position: 'absolute',

@@ -8,14 +8,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SectionHeader } from '@/components/section-header';
 import { Fonts, Radius, Shadow, Spacing, Typography, type ThemeColors } from '@/constants/theme';
-import {
-  formatVND,
-  transactions,
-  user,
-  type Transaction,
-  type TransactionStatus,
-} from '@/data/mock';
+import { formatVND, type Transaction, type TransactionStatus } from '@/data/mock';
 import { useTheme, useThemeColors, useThemedStyles } from '@/hooks/use-theme';
+import { useUser } from '@/hooks/use-user';
+import { useWallet } from '@/hooks/use-wallet';
+import { useLanguage, translateOrderName, type UiKey } from '@/i18n';
 
 const ICON: Record<Transaction['kind'], keyof typeof MaterialCommunityIcons.glyphMap> = {
   parking: 'parking',
@@ -23,21 +20,22 @@ const ICON: Record<Transaction['kind'], keyof typeof MaterialCommunityIcons.glyp
   motorbike: 'motorbike',
 };
 
-const STATUS_LABEL: Record<TransactionStatus, string> = {
-  ongoing: 'Đang diễn ra',
-  completed: 'Đã hoàn thành',
-  cancelled: 'Đã hủy',
+/** Khoá i18n nhãn trạng thái đơn. */
+const STATUS_KEY: Record<TransactionStatus, UiKey> = {
+  ongoing: 'status.ongoing',
+  completed: 'status.completed',
+  cancelled: 'status.cancelled',
 };
 
 const FILTERS: {
   key: 'all' | TransactionStatus;
-  label: string;
+  labelKey: UiKey;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
 }[] = [
-  { key: 'all', label: 'Tất cả', icon: 'view-grid-outline' },
-  { key: 'ongoing', label: 'Đang diễn ra', icon: 'clipboard-clock-outline' },
-  { key: 'completed', label: 'Đã hoàn thành', icon: 'shield-check-outline' },
-  { key: 'cancelled', label: 'Đã hủy', icon: 'close-circle-outline' },
+  { key: 'all', labelKey: 'status.all', icon: 'view-grid-outline' },
+  { key: 'ongoing', labelKey: 'status.ongoing', icon: 'clipboard-clock-outline' },
+  { key: 'completed', labelKey: 'status.completed', icon: 'shield-check-outline' },
+  { key: 'cancelled', labelKey: 'status.cancelled', icon: 'close-circle-outline' },
 ];
 
 /** Màn 10 — Tài khoản / Lịch sử. */
@@ -45,6 +43,9 @@ export default function AccountScreen() {
   const styles = useThemedStyles(makeStyles);
   const Colors = useThemeColors();
   const { isDark } = useTheme();
+  const { t, td } = useLanguage();
+  const { user } = useUser();
+  const { balance, transactions } = useWallet();
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<'all' | TransactionStatus>('all');
 
@@ -57,8 +58,8 @@ export default function AccountScreen() {
   );
 
   const list = useMemo(
-    () => (filter === 'all' ? transactions : transactions.filter((t) => t.status === filter)),
-    [filter]
+    () => (filter === 'all' ? transactions : transactions.filter((tx) => tx.status === filter)),
+    [filter, transactions]
   );
 
   return (
@@ -82,13 +83,14 @@ export default function AccountScreen() {
 
           <View style={styles.balanceCard}>
             <View style={styles.flex}>
-              <Text style={styles.balance}>{formatVND(user.balance)}</Text>
-              <Text style={styles.balanceLabel}>Số dư khả dụng</Text>
+              <Text style={styles.balance}>{formatVND(balance)}</Text>
+              <Text style={styles.balanceLabel}>{t('account.availableBalance')}</Text>
             </View>
             <Pressable
               style={({ pressed }) => [styles.historyBtn, pressed && styles.pressed]}
+              onPress={() => router.push('/account-detail')}
               hitSlop={8}>
-              <Text style={styles.historyBtnText}>Lịch sử giao dịch</Text>
+              <Text style={styles.historyBtnText}>{t('account.txHistory')}</Text>
               <Ionicons name="chevron-forward" size={16} color={Colors.green} />
             </Pressable>
           </View>
@@ -96,7 +98,7 @@ export default function AccountScreen() {
 
         <View style={styles.body}>
           {/* Đơn hàng của tôi — bộ lọc icon */}
-          <Text style={styles.sectionTitle}>Đơn hàng của tôi</Text>
+          <Text style={styles.sectionTitle}>{t('account.myOrders')}</Text>
           <View style={styles.filterRow}>
             {FILTERS.map((f) => {
               const active = filter === f.key;
@@ -114,7 +116,7 @@ export default function AccountScreen() {
                   <Text
                     style={[styles.filterLabel, active && styles.filterLabelActive]}
                     numberOfLines={1}>
-                    {f.label}
+                    {t(f.labelKey)}
                   </Text>
                 </Pressable>
               );
@@ -122,31 +124,31 @@ export default function AccountScreen() {
           </View>
 
           {/* Lịch sử gần đây */}
-          <SectionHeader title="Lịch sử gần đây" onAction={() => {}} />
+          <SectionHeader title={t('account.recent')} onAction={() => {}} />
           {list.length === 0 ? (
             <View style={styles.emptyCard}>
               <Ionicons name="receipt-outline" size={32} color={Colors.textMuted} />
-              <Text style={styles.emptyText}>Không có đơn hàng nào</Text>
+              <Text style={styles.emptyText}>{t('account.empty')}</Text>
             </View>
           ) : (
             <View style={styles.historyCard}>
-              {list.map((t, i) => (
-                <View key={t.id}>
+              {list.map((tx, i) => (
+                <View key={tx.id}>
                   {i > 0 ? <View style={styles.separator} /> : null}
                   <View style={styles.txRow}>
                     <View style={styles.txIcon}>
-                      <MaterialCommunityIcons name={ICON[t.kind]} size={24} color={Colors.green} />
+                      <MaterialCommunityIcons name={ICON[tx.kind]} size={24} color={Colors.green} />
                     </View>
                     <View style={styles.flex}>
                       <Text style={styles.txName} numberOfLines={1}>
-                        {t.name}
+                        {translateOrderName(tx.name, t, td)}
                       </Text>
-                      <Text style={styles.txMeta}>{t.datetime}</Text>
+                      <Text style={styles.txMeta}>{td(tx.datetime)}</Text>
                     </View>
                     <View style={styles.txRight}>
-                      <Text style={styles.txAmount}>{formatVND(t.amount)}</Text>
-                      <Text style={[styles.txStatus, statusColor(t.status, Colors)]}>
-                        {STATUS_LABEL[t.status]}
+                      <Text style={styles.txAmount}>{formatVND(tx.amount)}</Text>
+                      <Text style={[styles.txStatus, statusColor(tx.status, Colors)]}>
+                        {t(STATUS_KEY[tx.status])}
                       </Text>
                     </View>
                   </View>

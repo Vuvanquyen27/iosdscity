@@ -15,6 +15,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PreferencesProvider } from '@/hooks/use-preferences';
 import { ThemeProvider, useTheme } from '@/hooks/use-theme';
 import { UserProvider } from '@/hooks/use-user';
+import { WalletProvider } from '@/hooks/use-wallet';
 import { LanguageProvider } from '@/i18n';
 
 // Giữ splash gốc cho tới khi font nạp xong.
@@ -46,9 +47,11 @@ export default function RootLayout() {
         <ThemeProvider>
           <LanguageProvider>
             <UserProvider>
-              <PreferencesProvider>
-                <RootNavigator />
-              </PreferencesProvider>
+              <WalletProvider>
+                <PreferencesProvider>
+                  <RootNavigator />
+                </PreferencesProvider>
+              </WalletProvider>
             </UserProvider>
           </LanguageProvider>
         </ThemeProvider>
@@ -69,13 +72,20 @@ function RootNavigator() {
         }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="login" />
+        <Stack.Screen name="register" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="account-detail" />
         <Stack.Screen name="parking/[id]" />
         <Stack.Screen name="car/[id]" />
         <Stack.Screen name="motorbike/[id]" />
         <Stack.Screen name="share" />
         <Stack.Screen name="topup" />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="profile" />
+        <Stack.Screen name="payment" />
+        <Stack.Screen name="security" />
+        <Stack.Screen name="language" />
+        <Stack.Screen name="info/[topic]" />
         <Stack.Screen name="success" options={{ gestureEnabled: false, animation: 'fade' }} />
       </Stack>
       <StatusBar style={isDark ? 'light' : 'dark'} />

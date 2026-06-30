@@ -1,9 +1,9 @@
 /**
  * DSCITY — Hồ sơ người dùng toàn cục.
  *
- * Giữ thông tin người dùng (khởi tạo từ mock), nạp phần đã chỉnh từ
- * AsyncStorage khi mở app, và lưu lại mỗi khi `update()` được gọi.
- * Khi đổi tên: tự suy lại `firstName` (lời chào trang chủ) và `avatar`.
+ * - Đã ĐĂNG NHẬP: nạp hồ sơ từ Supabase (bảng profiles); `update()` ghi thẳng lên DB.
+ * - CHƯA đăng nhập (chế độ demo): dùng hồ sơ mock + lưu chỉnh sửa vào AsyncStorage.
+ * Tự nạp lại khi trạng thái đăng nhập đổi (onAuthChange).
  *
  * Dùng: `const { user, update } = useUser();`
  */
@@ -14,11 +14,15 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
 
 import { avatarUrl, user as defaultUser, type User } from '@/data/mock';
+import { fetchProfile, updateProfile } from '@/services/api';
+import { getSession, onAuthChange } from '@/services/auth';
+import type { ProfileRow } from '@/types/database';
 
 const STORAGE_KEY = 'dscity:user';
 
@@ -27,7 +31,7 @@ export type EditableUser = Pick<User, 'name' | 'phone' | 'email'>;
 
 interface UserContextValue {
   user: User;
-  /** Gộp thay đổi + lưu. Đổi tên sẽ cập nhật lại firstName & avatar. */
+  /** Gộp thay đổi + lưu (Supabase nếu đã đăng nhập, không thì AsyncStorage). */
   update: (patch: Partial<EditableUser>) => void;
 }
 
@@ -49,29 +53,80 @@ function mergeUser(prev: User, patch: Partial<EditableUser>): User {
   return next;
 }
 
+/** ProfileRow (DB) → User (hiển thị). Số dư lấy từ useWallet nên để 0 ở đây. */
+function profileToUser(p: ProfileRow): User {
+  const name = p.full_name || 'Người dùng';
+  return {
+    name,
+    firstName: deriveFirstName(name),
+    phone: p.phone ?? '',
+    email: p.email ?? '',
+    balance: 0,
+    avatar: p.avatar_url || avatarUrl(name),
+  };
+}
+
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User>(defaultUser);
+  const signedIn = useRef(false);
 
-  // Nạp phần hồ sơ đã chỉnh (nếu có) khi mở app.
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((saved) => {
-        if (!saved) return;
-        const patch = JSON.parse(saved) as Partial<EditableUser>;
-        setUser((prev) => mergeUser(prev, patch));
-      })
-      .catch(() => {
-        /* bỏ qua lỗi đọc storage — dùng hồ sơ mặc định */
-      });
+    let active = true;
+
+    async function loadProfile() {
+      try {
+        const p = await fetchProfile();
+        if (active && p) setUser(profileToUser(p));
+      } catch {
+        /* lỗi mạng — giữ hồ sơ hiện tại */
+      }
+    }
+
+    async function init() {
+      const session = await getSession();
+      signedIn.current = !!session;
+      if (session) {
+        loadProfile();
+      } else {
+        // Chế độ demo: nạp phần hồ sơ đã chỉnh lưu local (nếu có).
+        const saved = await AsyncStorage.getItem(STORAGE_KEY);
+        if (active && saved) {
+          const patch = JSON.parse(saved) as Partial<EditableUser>;
+          setUser((prev) => mergeUser(prev, patch));
+        }
+      }
+    }
+
+    init();
+
+    // Đăng nhập/đăng xuất → nạp lại hồ sơ tương ứng.
+    const unsub = onAuthChange((isSignedIn) => {
+      signedIn.current = isSignedIn;
+      if (isSignedIn) loadProfile();
+      else setUser(defaultUser);
+    });
+
+    return () => {
+      active = false;
+      unsub();
+    };
   }, []);
 
   const update = useCallback((patch: Partial<EditableUser>) => {
     setUser((prev) => {
       const next = mergeUser(prev, patch);
-      const toSave: EditableUser = { name: next.name, phone: next.phone, email: next.email };
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toSave)).catch(() => {
-        /* bỏ qua lỗi ghi storage */
-      });
+      if (signedIn.current) {
+        updateProfile({
+          full_name: next.name,
+          phone: next.phone || null,
+          email: next.email || null,
+        }).catch(() => {
+          /* bỏ qua lỗi ghi — UI đã cập nhật lạc quan */
+        });
+      } else {
+        const toSave: EditableUser = { name: next.name, phone: next.phone, email: next.email };
+        AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toSave)).catch(() => {});
+      }
       return next;
     });
   }, []);
