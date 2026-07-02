@@ -78,6 +78,7 @@ function RootNavigator() {
         <Stack.Screen name="parking/[id]" />
         <Stack.Screen name="car/[id]" />
         <Stack.Screen name="motorbike/[id]" />
+        <Stack.Screen name="vehicle/new" />
         <Stack.Screen name="share" />
         <Stack.Screen name="topup" />
         <Stack.Screen name="settings" />

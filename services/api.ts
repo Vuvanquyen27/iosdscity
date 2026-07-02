@@ -243,6 +243,56 @@ export async function fetchVehicle(id: string): Promise<Vehicle | null> {
   return mockVehicles.find((v) => v.id === id) ?? null;
 }
 
+/** Dữ liệu form "Đăng xe cho thuê" — đã chuẩn hoá (giá là số nguyên VND). */
+export interface NewVehicleInput {
+  kind: VehicleKind; // 'car' | 'motorbike'
+  name: string;
+  brand?: string | null;
+  transmission: 'auto' | 'manual';
+  seats?: number | null; // ô tô
+  engineCapacity?: number | null; // xe máy (cc)
+  fuelType: string; // 'Xăng' | 'Điện' | 'Dầu'
+  pricePerHour: number;
+  pricePerDay: number;
+  pricePerWeek: number;
+  features: string[]; // slug: bao_hiem_day_du, giao_xe_tan_noi...
+  imageUrl?: string | null;
+}
+
+/**
+ * Đăng một xe cho thuê (chủ xe). Ghi thẳng vào bảng `vehicles` với
+ * owner_id = người đang đăng nhập, status 'available' → xe xuất hiện ngay trong
+ * danh mục và mở được màn chi tiết. Cần RLS "vehicles: insert own" (migration
+ * 0003). Trả về Vehicle đã map (kèm id thật từ DB) để điều hướng sang màn detail.
+ */
+export async function createVehicle(input: NewVehicleInput): Promise<Vehicle> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error('Bạn cần đăng nhập để đăng xe cho thuê.');
+
+  const row: Partial<VehicleRow> = {
+    owner_id: user.id,
+    type: input.kind,
+    name: input.name.trim(),
+    brand: input.brand?.trim() || null,
+    transmission: input.transmission,
+    seats: input.kind === 'car' ? (input.seats ?? null) : null,
+    engine_capacity: input.kind === 'motorbike' ? (input.engineCapacity ?? null) : null,
+    fuel_type: input.fuelType,
+    price_per_hour: input.pricePerHour,
+    price_per_day: input.pricePerDay,
+    price_per_week: input.pricePerWeek,
+    features: input.features,
+    image_url: input.imageUrl?.trim() || null,
+    status: 'available',
+  };
+
+  const { data, error } = await supabase.from('vehicles').insert(row).select('*').single();
+  if (error) throw error;
+  return mapVehicle(data);
+}
+
 export async function fetchTrips(): Promise<Trip[]> {
   const { data, error } = await supabase
     .from('shared_trips')
@@ -308,101 +358,25 @@ export async function fetchWalletTransactions(): Promise<WalletTxRow[]> {
 // Giao dịch
 // ---------------------------------------------------------------------------
 
-const PREFIX: Record<ServiceType, string> = {
-  parking: 'PARK',
-  car: 'CAR',
-  motorbike: 'BIKE',
-  sharing: 'RIDE',
-};
-
-/** Sinh mã đơn kiểu PARK-260628-8X7A. */
-function genBookingCode(service: ServiceType): string {
-  const d = new Date();
-  const p = (n: number) => String(n).padStart(2, '0');
-  const ymd = `${String(d.getFullYear()).slice(2)}${p(d.getMonth() + 1)}${p(d.getDate())}`;
-  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `${PREFIX[service]}-${ymd}-${rand}`;
-}
-
-const ID_COLUMN: Record<ServiceType, 'parking_lot_id' | 'vehicle_id' | 'trip_id'> = {
-  parking: 'parking_lot_id',
-  car: 'vehicle_id',
-  motorbike: 'vehicle_id',
-  sharing: 'trip_id',
-};
-
 /**
- * Tạo đơn đặt chỗ. Trả về booking vừa tạo.
- * Lưu ý: chưa trừ ví ở đây (schema không có RPC atomic) — gọi `topup`/ghi
- * wallet_transactions riêng nếu cần. Cân nhắc thêm function DB cho an toàn.
- */
-export async function createBooking(opts: {
-  serviceType: ServiceType;
-  targetId: string;
-  amount: number;
-  rateType?: RateType;
-  startTime?: string;
-  endTime?: string | null;
-}): Promise<BookingRow> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error('Bạn cần đăng nhập để đặt chỗ.');
-
-  const row: Partial<BookingRow> = {
-    code: genBookingCode(opts.serviceType),
-    user_id: user.id,
-    service_type: opts.serviceType,
-    rate_type: opts.rateType ?? null,
-    start_time: opts.startTime ?? null,
-    end_time: opts.endTime ?? null,
-    total_amount: opts.amount,
-    status: 'pending',
-  };
-  row[ID_COLUMN[opts.serviceType]] = opts.targetId; // gán FK đúng loại dịch vụ
-
-  const { data, error } = await supabase.from('bookings').insert(row).select('*').single();
-  if (error) throw error;
-  return data;
-}
-
-/**
- * Nạp tiền vào ví. Trả về số dư MỚI.
- * Lưu ý: đọc-rồi-ghi nên KHÔNG atomic (đua lệnh nếu nhiều thiết bị nạp cùng lúc).
- * Với app 1 người dùng thì ổn; cần chắc chắn thì chuyển sang RPC ở DB.
+ * Nạp tiền vào ví — qua RPC `wallet_topup` (SECURITY DEFINER, ATOMIC, tự tạo ví
+ * nếu chưa có). Client KHÔNG được ghi thẳng bảng `wallets` (RLS chặn — xem
+ * migration 0005). Trả về số dư MỚI (VND).
  */
 export async function topup(amount: number, method: PaymentMethod): Promise<number> {
-  const { data: wallet, error: wErr } = await supabase
-    .from('wallets')
-    .select('id, balance')
-    .maybeSingle();
-  if (wErr) throw wErr;
-  if (!wallet) throw new Error('Chưa có ví — hãy đăng nhập lại.');
-
-  const newBalance = wallet.balance + amount;
-
-  const { error: uErr } = await supabase
-    .from('wallets')
-    .update({ balance: newBalance, updated_at: new Date().toISOString() })
-    .eq('id', wallet.id);
-  if (uErr) throw uErr;
-
-  const { error: tErr } = await supabase.from('wallet_transactions').insert({
-    wallet_id: wallet.id,
-    type: 'topup',
-    amount,
-    balance_after: newBalance,
-    description: `Nạp tiền (${method})`,
+  const { data, error } = await supabase.rpc('wallet_topup', {
+    p_amount: amount,
+    p_method: paymentToDb(method),
   });
-  if (tErr) throw tErr;
-
-  return newBalance;
+  if (error) throw error;
+  return data ?? 0;
 }
 
 /**
- * Đặt chỗ + trừ ví trong một lượt. Trả {booking, balance mới}.
- * Ném Error('insufficient') khi số dư không đủ. KHÔNG atomic (schema không có RPC)
- * — đủ cho MVP; cần chắc chắn thì chuyển logic này thành function ở DB.
+ * Đặt chỗ + trừ ví (+ giảm slot/ghế) trong MỘT transaction ở DB — qua RPC
+ * `book_and_pay` (SECURITY DEFINER, ATOMIC: hoặc thành công trọn vẹn, hoặc
+ * rollback). Ném Error('insufficient') khi số dư không đủ. Client KHÔNG ghi thẳng
+ * `bookings`/`wallets` (RLS chặn — xem migration 0005). Trả {booking, balance mới}.
  */
 export async function bookAndPay(opts: {
   serviceType: ServiceType;
@@ -413,54 +387,19 @@ export async function bookAndPay(opts: {
   startTime?: string;
   endTime?: string | null;
 }): Promise<{ booking: BookingRow; balance: number }> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error('Bạn cần đăng nhập để đặt chỗ.');
-
-  const { data: wallet, error: wErr } = await supabase
-    .from('wallets')
-    .select('id, balance')
-    .maybeSingle();
-  if (wErr) throw wErr;
-  if (!wallet) throw new Error('Chưa có ví — hãy đăng nhập lại.');
-  if (wallet.balance < opts.amount) throw new Error('insufficient');
-
-  // 1) Tạo đơn (đang diễn ra)
-  const row: Partial<BookingRow> = {
-    code: genBookingCode(opts.serviceType),
-    user_id: user.id,
-    service_type: opts.serviceType,
-    rate_type: opts.rateType ?? null,
-    start_time: opts.startTime ?? null,
-    end_time: opts.endTime ?? null,
-    total_amount: opts.amount,
-    status: 'ongoing',
-  };
-  row[ID_COLUMN[opts.serviceType]] = opts.targetId;
-  const { data: booking, error: bErr } = await supabase
-    .from('bookings')
-    .insert(row)
-    .select('*')
-    .single();
-  if (bErr) throw bErr;
-
-  // 2) Trừ ví + ghi sổ giao dịch (payment, số âm)
-  const newBalance = wallet.balance - opts.amount;
-  const { error: uErr } = await supabase
-    .from('wallets')
-    .update({ balance: newBalance, updated_at: new Date().toISOString() })
-    .eq('id', wallet.id);
-  if (uErr) throw uErr;
-  const { error: tErr } = await supabase.from('wallet_transactions').insert({
-    wallet_id: wallet.id,
-    type: 'payment',
-    amount: -opts.amount,
-    balance_after: newBalance,
-    description: opts.name,
-    booking_id: booking.id,
+  const { data, error } = await supabase.rpc('book_and_pay', {
+    p_service_type: opts.serviceType,
+    p_target_id: opts.targetId,
+    p_amount: opts.amount,
+    p_name: opts.name,
+    p_rate_type: opts.rateType ?? null,
+    p_start_time: opts.startTime ?? null,
+    p_end_time: opts.endTime ?? null,
   });
-  if (tErr) throw tErr;
-
-  return { booking, balance: newBalance };
+  if (error) {
+    // RPC raise 'insufficient' → giữ đúng hợp đồng cũ để UI xử lý "thiếu tiền".
+    if (error.message?.includes('insufficient')) throw new Error('insufficient');
+    throw error;
+  }
+  return data as { booking: BookingRow; balance: number };
 }

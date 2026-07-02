@@ -97,6 +97,20 @@ export default function AccountScreen() {
         </View>
 
         <View style={styles.body}>
+          {/* Đăng xe cho thuê — mở form thêm xe vào danh mục */}
+          <Pressable
+            style={({ pressed }) => [styles.actionCard, pressed && styles.pressed]}
+            onPress={() => router.push('/vehicle/new')}>
+            <View style={styles.actionIcon}>
+              <Ionicons name="car-sport-outline" size={24} color={Colors.green} />
+            </View>
+            <View style={styles.flex}>
+              <Text style={styles.actionTitle}>Đăng xe cho thuê</Text>
+              <Text style={styles.actionSub}>Thêm ô tô / xe máy của bạn vào danh mục</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+          </Pressable>
+
           {/* Đơn hàng của tôi — bộ lọc icon */}
           <Text style={styles.sectionTitle}>{t('account.myOrders')}</Text>
           <View style={styles.filterRow}>
@@ -232,6 +246,29 @@ const makeStyles = (Colors: ThemeColors) =>
     // Thân màn
     body: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl },
     sectionTitle: { ...Typography.h2, color: Colors.text, marginBottom: Spacing.lg },
+
+    // Thẻ "Đăng xe cho thuê"
+    actionCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.md,
+      backgroundColor: Colors.surface,
+      borderRadius: Radius.lg,
+      paddingHorizontal: Spacing.lg,
+      paddingVertical: Spacing.md,
+      marginBottom: Spacing.xl,
+      ...Shadow.card,
+    },
+    actionIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: Radius.md,
+      backgroundColor: Colors.greenSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    actionTitle: { ...Typography.bodyMed, color: Colors.text, fontFamily: Fonts.semibold },
+    actionSub: { ...Typography.caption, color: Colors.textMuted, marginTop: 2 },
 
     // Bộ lọc icon
     filterRow: {

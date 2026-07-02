@@ -18,6 +18,7 @@ export const lightColors = {
   navy: '#0D1B3D', // primary đậm (nền splash, badge, nút dark) — cố định
   green: '#0A683E', // primary brand (nút chính, accent) — cố định
   yellow: '#FFC107', // accent (sao đánh giá, highlight) — cố định
+  royal: '#2F4FA0', // xanh royal thương hiệu (tagline hero / splash) — cố định
   bg: '#F3F6FA', // nền màn hình
   surface: '#FFFFFF', // nền thẻ / ô input
   white: '#FFFFFF', // màu "trên nền màu" (chữ/icon trên xanh, QR…) — cố định
@@ -53,6 +54,7 @@ export const darkColors: ThemeColors = {
   navy: '#0D1B3D',
   green: '#0A683E',
   yellow: '#FFC107',
+  royal: '#2F4FA0',
   bg: '#0E1521', // nền màn hình tối
   surface: '#18212F', // nền thẻ tối
   white: '#FFFFFF',

@@ -117,16 +117,27 @@ export function VehicleDetail({ vehicle }: { vehicle: Vehicle }) {
           style={({ pressed }) => [styles.circle, pressed && styles.pressed]}>
           <Ionicons name="chevron-back" size={22} color={Colors.text} />
         </Pressable>
-        <Pressable
-          onPress={toggleLike}
-          hitSlop={8}
-          style={({ pressed }) => [styles.circle, pressed && styles.pressed]}>
-          <Ionicons
-            name={liked ? 'heart' : 'heart-outline'}
-            size={22}
-            color={liked ? Colors.danger : Colors.text}
-          />
-        </Pressable>
+        <View style={styles.headerRight}>
+          <Pressable
+            onPress={() => {
+              tap();
+              router.push('/vehicle/new');
+            }}
+            hitSlop={8}
+            style={({ pressed }) => [styles.circle, pressed && styles.pressed]}>
+            <Ionicons name="add" size={24} color={Colors.text} />
+          </Pressable>
+          <Pressable
+            onPress={toggleLike}
+            hitSlop={8}
+            style={({ pressed }) => [styles.circle, pressed && styles.pressed]}>
+            <Ionicons
+              name={liked ? 'heart' : 'heart-outline'}
+              size={22}
+              color={liked ? Colors.danger : Colors.text}
+            />
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
@@ -240,6 +251,7 @@ const makeStyles = (Colors: ThemeColors) =>
       ...Shadow.card,
     },
     pressed: { opacity: 0.7 },
+    headerRight: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
 
     heroCard: {
       marginHorizontal: Spacing.xl,

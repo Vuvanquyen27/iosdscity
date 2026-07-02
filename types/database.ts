@@ -194,6 +194,25 @@ export interface Database {
       notifications: Table<NotificationRow>;
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>; // schema B không dùng RPC (insert/update trực tiếp)
+    Functions: {
+      /** Nạp tiền vào ví (atomic, SECURITY DEFINER). Trả số dư mới (VND). */
+      wallet_topup: {
+        Args: { p_amount: number; p_method?: string };
+        Returns: number;
+      };
+      /** Đặt chỗ + trừ ví trong 1 transaction. Trả { booking, balance mới }. */
+      book_and_pay: {
+        Args: {
+          p_service_type: string;
+          p_target_id: string;
+          p_amount: number;
+          p_name: string;
+          p_rate_type?: string | null;
+          p_start_time?: string | null;
+          p_end_time?: string | null;
+        };
+        Returns: { booking: BookingRow; balance: number };
+      };
+    };
   };
 }
